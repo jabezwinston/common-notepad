@@ -279,6 +279,9 @@
         const userList = document.getElementById('userList');
         const editor = document.getElementById('editor');
 
+        // Get base path for API calls
+        const basePath = window.location.pathname.includes('/Common_Notepad') ? '/Common_Notepad' : '';
+
         // Handle login
         loginFormElement.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -286,7 +289,7 @@
             const password = document.getElementById('password').value;
 
             try {
-                const response = await fetch('/login', {
+                const response = await fetch(basePath + '/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -314,8 +317,11 @@
             editorContainer.style.display = 'block';
             userInfo.textContent = `Logged in as: ${currentUser}`;
 
-            // Initialize socket connection
-            socket = io();
+            // Initialize socket connection with proper path
+            const socketPath = window.location.pathname.includes('/Common_Notepad') ? '/Common_Notepad/socket.io/' : '/socket.io/';
+            socket = io({
+                path: socketPath
+            });
 
             // Authenticate with server
             socket.emit('authenticate', { username: currentUser });

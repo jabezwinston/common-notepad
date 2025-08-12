@@ -169,13 +169,22 @@ io.on('connection', (socket) => {
   });
 });
 
+// Handle base path for Apache reverse proxy
+const BASE_PATH = process.env.BASE_PATH || '';
+
 // Serve the main HTML file
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Handle subpath routing for Apache
+app.get('/Common_Notepad', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen('127.0.0.1', PORT, () => {
   console.log(`Collaborative editor server running on port ${PORT}`);
-  console.log(`Open http://localhost:${PORT} in your browser`);
+  console.log(`Access via Apache: http://your-server-ip/Common_Notepad`);
+  console.log(`Direct access: http://localhost:${PORT}`);
 });
