@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Text Editor</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .user-info {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+        }
+
+        .login-form {
+            padding: 40px;
+            text-align: center;
+        }
+
+        .login-form h2 {
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .error-message {
+            color: #e74c3c;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .editor-container {
+            display: none;
+            height: 80vh;
+        }
+
+        .sidebar {
+            width: 200px;
+            background: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            padding: 20px;
+            float: left;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+
+        .user-list {
+            list-style: none;
+        }
+
+        .user-item {
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .user-item::before {
+            content: '●';
+            margin-right: 8px;
+            font-size: 12px;
+        }
+
+        .editor-wrapper {
+            margin-left: 200px;
+            height: 100%;
+            position: relative;
+        }
+
+        .editor {
+            width: 100%;
+            height: 100%;
+            border: none;
+            resize: none;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            background: #fff;
+            position: relative;
+        }
+
+        .editor:focus {
+            outline: none;
+        }
+
+        .cursor {
+            position: absolute;
+            width: 2px;
+            background: #e74c3c;
+            animation: blink 1s infinite;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .cursor::after {
+            content: attr(data-username);
+            position: absolute;
+            top: -25px;
+            left: 0;
+            background: #e74c3c;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            white-space: nowrap;
+            font-family: Arial, sans-serif;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .selection {
+            position: absolute;
+            background: rgba(231, 76, 60, 0.2);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* User colors for cursors */
+        .cursor.user-1 { background: #e74c3c; }
+        .cursor.user-1::after { background: #e74c3c; }
+        .cursor.user-2 { background: #3498db; }
+        .cursor.user-2::after { background: #3498db; }
+        .cursor.user-3 { background: #2ecc71; }
+        .cursor.user-3::after { background: #2ecc71; }
+        .cursor.user-4 { background: #f39c12; }
+        .cursor.user-4::after { background: #f39c12; }
+        .cursor.user-5 { background: #9b59b6; }
+        .cursor.user-5::after { background: #9b59b6; }
+
+        .user-item.user-1::before { color: #e74c3c; }
+        .user-item.user-2::before { color: #3498db; }
+        .user-item.user-3::before { color: #2ecc71; }
+        .user-item.user-4::before { color: #f39c12; }
+        .user-item.user-5::before { color: #9b59b6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Collaborative Text Editor</h1>
+            <div class="user-info" id="userInfo"></div>
+        </div>
+
+        <!-- Login Form -->
+        <div class="login-form" id="loginForm">
+            <h2>Login to Continue</h2>
+            <form id="loginFormElement">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="login-btn">Login</button>
+                <div class="error-message" id="errorMessage"></div>
+            </form>
+            <p style="margin-top: 20px; font-size: 14px; color: #7f8c8d;">
+                Default users: admin/admin123, user1/password1, user2/password2, editor/editor123
+            </p>
+        </div>
+
+        <!-- Editor Container -->
+        <div class="editor-container" id="editorContainer">
+            <div class="sidebar">
+                <h3>Connected Users</h3>
+                <ul class="user-list" id="userList"></ul>
+            </div>
+            <div class="editor-wrapper">
+                <textarea class="editor" id="editor" placeholder="Start typing to collaborate..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        let currentUser;
+        let userColors = {};
+        let colorIndex = 1;
+
+        // DOM elements
+        const loginForm = document.getElementById('loginForm');
+        const editorContainer = document.getElementById('editorContainer');
+        const loginFormElement = document.getElementById('loginFormElement');
+        const errorMessage = document.getElementById('errorMessage');
+        const userInfo = document.getElementById('userInfo');
+        const userList = document.getElementById('userList');
+        const editor = document.getElementById('editor');
+
+        // Handle login
+        loginFormElement.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    currentUser = result.username;
+                    initializeEditor();
+                } else {
+                    errorMessage.textContent = result.message || 'Login failed';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Connection error';
+                console.error('Login error:', error);
+            }
+        });
+
+        function initializeEditor() {
+            // Hide login form and show editor
+            loginForm.style.display = 'none';
+            editorContainer.style.display = 'block';
+            userInfo.textContent = `Logged in as: ${currentUser}`;
+
+            // Initialize socket connection
+            socket = io();
+
+            // Authenticate with server
+            socket.emit('authenticate', { username: currentUser });
+
+            // Handle document state
+            socket.on('document-state', (data) => {
+                editor.value = data.content;
+                updateUserList(data.users);
+            });
+
+            // Handle text changes from other users
+            socket.on('text-change', (data) => {
+                if (data.username !== currentUser) {
+                    const cursorPosition = editor.selectionStart;
+                    editor.value = data.content;
+                    editor.setSelectionRange(cursorPosition, cursorPosition);
+                    updateCursorPosition(data.userId, data.username, data.cursorPosition);
+                }
+            });
+
+            // Handle cursor position updates
+            socket.on('cursor-position', (data) => {
+                updateCursorPosition(data.userId, data.username, data.position, data.selectionStart, data.selectionEnd);
+            });
+
+            // Handle user joining
+            socket.on('user-joined', (data) => {
+                addUserToList(data.username, data.socketId);
+            });
+
+            // Handle user leaving
+            socket.on('user-left', (data) => {
+                removeUserFromList(data.userId);
+                removeCursor(data.userId);
+            });
+
+            // Editor event listeners
+            editor.addEventListener('input', () => {
+                const content = editor.value;
+                const cursorPosition = editor.selectionStart;
+                socket.emit('text-change', { content, cursorPosition });
+            });
+
+            editor.addEventListener('selectionchange', updateCursor);
+            editor.addEventListener('click', updateCursor);
+            editor.addEventListener('keyup', updateCursor);
+        }
+
+        function updateCursor() {
+            const position = editor.selectionStart;
+            const selectionStart = editor.selectionStart;
+            const selectionEnd = editor.selectionEnd;
+            
+            socket.emit('cursor-position', { 
+                position, 
+                selectionStart, 
+                selectionEnd 
+            });
+        }
+
+        function updateUserList(users) {
+            userList.innerHTML = '';
+            users.forEach((user, index) => {
+                if (user.username !== currentUser) {
+                    addUserToList(user.username, `user-${index}`);
+                }
+            });
+        }
+
+        function addUserToList(username, userId) {
+            const li = document.createElement('li');
+            li.className = `user-item user-${getColorIndex(userId)}`;
+            li.textContent = username;
+            li.id = `user-${userId}`;
+            userList.appendChild(li);
+        }
+
+        function removeUserFromList(userId) {
+            const userElement = document.getElementById(`user-${userId}`);
+            if (userElement) {
+                userElement.remove();
+            }
+        }
+
+        function getColorIndex(userId) {
+            if (!userColors[userId]) {
+                userColors[userId] = colorIndex;
+                colorIndex = (colorIndex % 5) + 1;
+            }
+            return userColors[userId];
+        }
+
+        function updateCursorPosition(userId, username, position, selectionStart = position, selectionEnd = position) {
+            // Remove existing cursor
+            removeCursor(userId);
+
+            // Calculate position in textarea
+            const textBeforeCursor = editor.value.substring(0, position);
+            const lines = textBeforeCursor.split('\n');
+            const lineNumber = lines.length - 1;
+            const columnNumber = lines[lines.length - 1].length;
+
+            // Create cursor element
+            const cursor = document.createElement('div');
+            cursor.className = `cursor user-${getColorIndex(userId)}`;
+            cursor.id = `cursor-${userId}`;
+            cursor.setAttribute('data-username', username);
+
+            // Position the cursor (approximate positioning)
+            const lineHeight = 21; // 14px font * 1.5 line-height
+            const charWidth = 8.4; // Approximate character width for Courier New
+            
+            cursor.style.left = (20 + columnNumber * charWidth) + 'px';
+            cursor.style.top = (20 + lineNumber * lineHeight) + 'px';
+            cursor.style.height = lineHeight + 'px';
+
+            // Add selection if there's a range selected
+            if (selectionStart !== selectionEnd) {
+                const selection = document.createElement('div');
+                selection.className = 'selection';
+                selection.id = `selection-${userId}`;
+                
+                const textBeforeSelection = editor.value.substring(0, selectionStart);
+                const selectedText = editor.value.substring(selectionStart, selectionEnd);
+                const selectionLines = textBeforeSelection.split('\n');
+                const selectionStartLine = selectionLines.length - 1;
+                const selectionStartColumn = selectionLines[selectionLines.length - 1].length;
+                
+                selection.style.left = (20 + selectionStartColumn * charWidth) + 'px';
+                selection.style.top = (20 + selectionStartLine * lineHeight) + 'px';
+                selection.style.width = (selectedText.length * charWidth) + 'px';
+                selection.style.height = lineHeight + 'px';
+                
+                document.querySelector('.editor-wrapper').appendChild(selection);
+            }
+
+            document.querySelector('.editor-wrapper').appendChild(cursor);
+        }
+
+        function removeCursor(userId) {
+            const cursor = document.getElementById(`cursor-${userId}`);
+            const selection = document.getElementById(`selection-${userId}`);
+            if (cursor) cursor.remove();
+            if (selection) selection.remove();
+        }
+    </script>
+</body>
+</html>

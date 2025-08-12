@@ -1,0 +1,27 @@
+{
+  "name": "collaborative-text-editor",
+  "version": "1.0.0",
+  "description": "A real-time collaborative text editor with user authentication",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "keywords": [
+    "collaborative",
+    "editor",
+    "real-time",
+    "socket.io",
+    "nodejs"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "csv-parser": "^3.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
