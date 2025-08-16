@@ -279,8 +279,17 @@
         const userList = document.getElementById('userList');
         const editor = document.getElementById('editor');
 
-        // Get base path for API calls
-        const basePath = window.location.pathname.includes('/Common_Notepad') ? '/Common_Notepad' : '';
+        // Get base path for API calls - detect if we're at /Common_Notepad
+        function getBasePath() {
+            const pathname = window.location.pathname;
+            if (pathname.startsWith('/Common_Notepad')) {
+                return '/Common_Notepad';
+            }
+            return '';
+        }
+
+        const basePath = getBasePath();
+        console.log('Detected base path:', basePath);
 
         // Handle login
         loginFormElement.addEventListener('submit', async (e) => {
@@ -288,14 +297,21 @@
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
+            const loginUrl = basePath + '/login';
+            console.log('Login URL:', loginUrl);
+
             try {
-                const response = await fetch(basePath + '/login', {
+                const response = await fetch(loginUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ username, password })
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
                 const result = await response.json();
 
@@ -306,8 +322,8 @@
                     errorMessage.textContent = result.message || 'Login failed';
                 }
             } catch (error) {
-                errorMessage.textContent = 'Connection error';
-                console.error('Login error:', error);
+                console.error('Login error details:', error);
+                errorMessage.textContent = 'Connection error: ' + error.message;
             }
         });
 
@@ -318,7 +334,9 @@
             userInfo.textContent = `Logged in as: ${currentUser}`;
 
             // Initialize socket connection with proper path
-            const socketPath = window.location.pathname.includes('/Common_Notepad') ? '/Common_Notepad/socket.io/' : '/socket.io/';
+            const socketPath = basePath ? basePath + '/socket.io/' : '/socket.io/';
+            console.log('Socket.IO path:', socketPath);
+            
             socket = io({
                 path: socketPath
             });

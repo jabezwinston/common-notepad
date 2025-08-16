@@ -25,20 +25,21 @@ check_status() {
 }
 
 # Update system packages
-echo -e "${YELLOW}📦 Updating system packages...${NC}"
-sudo apt update && sudo apt upgrade -y
-check_status "System update"
+# echo -e "${YELLOW}📦 Updating system packages...${NC}"
+# sudo apt update && sudo apt upgrade -y
+# check_status "System update"
 
-# Install Node.js and npm
-echo -e "${YELLOW}📦 Installing Node.js and npm...${NC}"
-sudo apt install -y nodejs npm
-check_status "Node.js installation"
+# # Install Node.js and npm
+# echo -e "${YELLOW}📦 Installing Node.js and npm...${NC}"
+# sudo apt install -y nodejs npm
+# check_status "Node.js installation"
 
-# Install Apache2 and required modules
-echo -e "${YELLOW}🌐 Installing Apache2...${NC}"
-sudo apt install -y apache2
+# # Install Apache2 and required modules
+# echo -e "${YELLOW}🌐 Installing Apache2...${NC}"
+# sudo apt install -y apache2
 sudo a2enmod proxy
 sudo a2enmod proxy_http
+sudo a2enmod proxy_html
 sudo a2enmod proxy_wstunnel
 sudo a2enmod rewrite
 sudo a2enmod headers

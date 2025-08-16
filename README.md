@@ -1,238 +1,236 @@
-# Apache2 Deployment Guide for Common_Notepad
+# 🐳 Docker Deployment Guide - Common Notepad
 
-## 1. Server Setup Prerequisites
+This guide covers how to deploy the Collaborative Text Editor using Docker containers.
 
-### Install Node.js and npm
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install nodejs npm
+## 🚀 Quick Start
 
-# CentOS/RHEL
-sudo yum install nodejs npm
+### Prerequisites
+- Docker installed
+- Docker Compose installed (for production deployment)
+
+### Files Required
+Copy all these files from the artifacts:
+```
+common-notepad/
+├── app.js                  # Updated Node.js server
+├── public/
+│   └── index.html         # Updated client code
+├── package.json           # Dependencies
+├── users.csv              # User credentials
+├── Dockerfile             # Docker build instructions
+├── docker-compose.yml     # Multi-container setup
+├── nginx/
+│   └── nginx.conf         # Nginx reverse proxy config
+├── .dockerignore          # Docker build exclusions
+└── docker-deploy.sh       # Automated deployment script
 ```
 
-### Install Apache2 and enable required modules
-```bash
-# Ubuntu/Debian
-sudo apt install apache2
-sudo a2enmod proxy
-sudo a2enmod proxy_http
-sudo a2enmod proxy_wstunnel
-sudo a2enmod rewrite
-sudo a2enmod headers
+## 🎯 Deployment Options
 
-# CentOS/RHEL
-sudo yum install httpd
-# For CentOS, modules are usually compiled in
+### Option 1: Automated Script (Recommended)
+```bash
+chmod +x docker-deploy.sh
+./docker-deploy.sh
 ```
 
-## 2. Deploy the Node.js Application
+Choose from:
+1. **Quick start** - Node.js app only (port 3000)
+2. **Production** - With Nginx reverse proxy (port 80)
+3. **Custom** - Your own configuration
+4. **Monitor** - View running containers
+5. **Stop** - Stop all containers
+6. **Clean** - Remove everything
 
-### Create application directory
+### Option 2: Manual Docker Commands
+
+#### Simple Deployment
 ```bash
-sudo mkdir -p /opt/common-notepad
-sudo chown $USER:$USER /opt/common-notepad
-cd /opt/common-notepad
+# Build the image
+docker build -t common-notepad:latest .
+
+# Run the container
+docker run -d \
+  --name common-notepad-app \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/users.csv:/app/users.csv:ro \
+  -e NODE_ENV=production \
+  common-notepad:latest
 ```
 
-### Setup the application files
+#### Production with Nginx
 ```bash
-# Copy all the code files from the artifacts:
-# - app.js (updated server code)
-# - public/index.html (updated client code)  
-# - package.json
-# - users.csv
+# Start all services
+docker-compose up -d --build
 
-# Install dependencies
-npm install
-
-# Test the application
-npm start
-# Should show: "Collaborative editor server running on port 3000"
-# Press Ctrl+C to stop for now
+# Or build and run separately
+docker-compose build
+docker-compose up -d
 ```
 
-## 3. Configure Apache2
+## 🌐 Access URLs
 
-### Update the virtual host configuration
-```bash
-# Ubuntu/Debian
-sudo nano /etc/apache2/sites-available/000-default.conf
+### Development/Simple Deployment
+- **Direct access**: `http://localhost:3000/Common_Notepad`
+- **Network access**: `http://YOUR_SERVER_IP:3000/Common_Notepad`
 
-# CentOS/RHEL
-sudo nano /etc/httpd/conf/httpd.conf
+### Production with Nginx
+- **HTTP access**: `http://localhost/Common_Notepad`
+- **Network access**: `http://YOUR_SERVER_IP/Common_Notepad`
+
+## 👥 Default Users
+```
+Username: admin     | Password: admin123
+Username: user1     | Password: password1
+Username: user2     | Password: password2
+Username: editor    | Password: editor123
 ```
 
-**Copy the Apache configuration from the artifact above into your virtual host file.**
+## 📊 Container Management
 
-### Test Apache configuration
+### View Running Containers
 ```bash
-# Ubuntu/Debian
-sudo apache2ctl configtest
-
-# CentOS/RHEL
-sudo httpd -t
+docker ps --filter "name=common-notepad"
 ```
 
-### Restart Apache
+### View Logs
 ```bash
-# Ubuntu/Debian
-sudo systemctl restart apache2
+# App logs
+docker logs -f common-notepad-app
 
-# CentOS/RHEL
-sudo systemctl restart httpd
+# Nginx logs (if using production setup)
+docker logs -f common-notepad-nginx
+
+# All logs with docker-compose
+docker-compose logs -f
 ```
 
-## 4. Setup Application as a System Service
-
-### Create systemd service file
+### Container Control
 ```bash
-sudo nano /etc/systemd/system/common-notepad.service
+# Stop containers
+docker stop common-notepad-app
+docker-compose down
+
+# Restart containers  
+docker restart common-notepad-app
+docker-compose restart
+
+# Remove containers
+docker rm common-notepad-app
+docker-compose down --volumes
 ```
 
-**Add this content:**
-```ini
-[Unit]
-Description=Common Notepad Collaborative Editor
-After=network.target
+### Shell Access
+```bash
+# Access the app container
+docker exec -it common-notepad-app sh
 
-[Service]
-Type=simple
-User=www-data
-Group=www-data
-WorkingDirectory=/opt/common-notepad
-ExecStart=/usr/bin/node app.js
-Restart=always
-RestartSec=10
-Environment=NODE_ENV=production
-Environment=PORT=3000
-
-# Logging
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=common-notepad
-
-[Install]
-WantedBy=multi-user.target
+# List files
+docker exec common-notepad-app ls -la /app
 ```
 
-### Enable and start the service
+## 📁 Data Persistence
+
+### Volume Mounts
+- `./data:/app/data` - Persistent data directory
+- `./users.csv:/app/users.csv:ro` - User credentials (read-only)
+
+### Update Users
+1. Edit `users.csv` on the host
+2. Restart the container: `docker restart common-notepad-app`
+
+### Backup Data
 ```bash
-# Set proper permissions
-sudo chown -R www-data:www-data /opt/common-notepad
+# Create backup
+docker run --rm \
+  -v common-notepad_notepad-data:/data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/notepad-backup.tar.gz -C /data .
 
-# Enable and start service
-sudo systemctl daemon-reload
-sudo systemctl enable common-notepad.service
-sudo systemctl start common-notepad.service
-
-# Check status
-sudo systemctl status common-notepad.service
+# Restore backup
+docker run --rm \
+  -v common-notepad_notepad-data:/data \
+  -v $(pwd):/backup \
+  alpine tar xzf /backup/notepad-backup.tar.gz -C /data
 ```
 
-## 5. Firewall Configuration
+## 🔧 Configuration
 
-### Open required ports
+### Environment Variables
 ```bash
-# Ubuntu/Debian (UFW)
+NODE_ENV=production    # Production mode
+PORT=3000             # Internal port (don't change)
+```
+
+### Custom Configuration
+```bash
+# Custom port mapping
+docker run -d \
+  --name common-notepad-custom \
+  -p 8080:3000 \
+  -v $(pwd)/data:/app/data \
+  common-notepad:latest
+```
+
+### SSL/HTTPS Setup
+1. Place SSL certificates in `./ssl/` directory
+2. Update `nginx/nginx.conf` with SSL configuration
+3. Uncomment SSL volume mount in `docker-compose.yml`
+4. Restart: `docker-compose up -d`
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+#### 1. Container won't start
+```bash
+# Check logs
+docker logs common-notepad-app
+
+# Common fixes
+docker system prune -f  # Clean up
+docker-compose down --volumes && docker-compose up -d
+```
+
+#### 2. Can't connect from external IP
+```bash
+# Check if ports are exposed
+docker port common-notepad-app
+
+# Check firewall (Ubuntu)
+sudo ufw allow 3000/tcp
 sudo ufw allow 80/tcp
-sudo ufw allow 22/tcp  # Keep SSH access
-sudo ufw enable
-
-# CentOS/RHEL (firewalld)
-sudo firewall-cmd --permanent --add-service=http
-sudo firewall-cmd --reload
-
-# Or using iptables
-sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
 ```
 
-## 6. Testing the Deployment
+#### 3. WebSocket connection fails
+- Ensure nginx configuration includes WebSocket support
+- Check if `proxy_wstunnel` module is enabled in nginx image
+- Verify port mapping: `docker ps` should show port bindings
 
-### Check if services are running
+#### 4. Users can't login
 ```bash
-# Check Node.js app
-sudo systemctl status common-notepad.service
-sudo journalctl -u common-notepad.service -f
+# Check users.csv format
+docker exec common-notepad-app cat /app/users.csv
 
-# Check Apache
-sudo systemctl status apache2  # or httpd on CentOS
-
-# Check if port 3000 is listening (locally)
-sudo netstat -tlnp | grep 3000
-
-# Check if port 80 is listening
-sudo netstat -tlnp | grep 80
+# Check file permissions
+docker exec common-notepad-app ls -la /app/users.csv
 ```
 
-### Test the application
-1. **Open your browser** and go to: `http://YOUR_SERVER_IP/Common_Notepad`
-2. **Login** with default credentials:
-   - admin/admin123
-   - user1/password1
-   - etc.
-
-### Test multiple users
-1. **Open multiple tabs** or use different browsers
-2. **Login with different users**
-3. **Type in the editor** - you should see real-time collaboration!
-
-## 7. Monitoring and Logs
-
-### View application logs
+### Health Checks
 ```bash
-# Real-time logs
-sudo journalctl -u common-notepad.service -f
+# Manual health check
+curl http://localhost:3000/
 
-# Apache logs
-sudo tail -f /var/log/apache2/access.log
-sudo tail -f /var/log/apache2/error.log
+# Container health status
+docker inspect common-notepad-app | grep -A 10 Health
 ```
 
-## 8. Troubleshooting
-
-### Common Issues:
-
-**1. "502 Bad Gateway" error**
-- Check if Node.js service is running: `sudo systemctl status common-notepad.service`
-- Check if Node.js is listening on port 3000: `sudo netstat -tlnp | grep 3000`
-
-**2. WebSocket connection failures**
-- Ensure `proxy_wstunnel` module is enabled
-- Check Apache error logs for WebSocket-related errors
-
-**3. Login not working**
-- Check if `/opt/common-notepad/users.csv` exists and is readable
-- Check application logs for authentication errors
-
-**4. Can't access from external IP**
-- Check firewall rules
-- Ensure Apache is bound to all interfaces (not just localhost)
-
-### Restart services if needed
+### Performance Monitoring
 ```bash
-# Restart Node.js app
-sudo systemctl restart common-notepad.service
+# Container stats
+docker stats common-notepad-app
 
-# Restart Apache
-sudo systemctl restart apache2  # or httpd
+# Resource usage
+docker exec common-notepad-app top
 ```
-
-## 9. Security Considerations
-
-### Basic security improvements
-```bash
-# Hide Apache version
-echo "ServerTokens Prod" | sudo tee -a /etc/apache2/apache2.conf
-
-# Set proper file permissions
-sudo chmod 600 /opt/common-notepad/users.csv
-sudo chown www-data:www-data /opt/common-notepad/users.csv
-```
-
-### Optional: Add HTTPS (SSL/TLS)
-- Consider using Let's Encrypt for free SSL certificates
-- Update Apache configuration for HTTPS
-
-Your collaborative text editor should now be accessible at `http://YOUR_SERVER_IP/Common_Notepad`!
